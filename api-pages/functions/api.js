@@ -6,7 +6,7 @@ export async function onRequest(context) {
   const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With',
     'Access-Control-Max-Age': '86400',
   };
 
@@ -31,36 +31,50 @@ export async function onRequest(context) {
   const ig_url = `https://www.instagram.com/api/v1/users/web_profile_info/?username=${encodeURIComponent(username)}`;
 
   try {
+    // Quando o navegador faz a requisição, ele envia headers como 'Origin' e 'Referer'.
+    // O Instagram pode retornar 401 se detectar que a requisição está vindo de um domínio não autorizado.
+    // Usamos um User-Agent limpo e headers que simulam uma requisição interna do Instagram.
+    
     const response = await fetch(ig_url, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
         'x-ig-app-id': '936619743392459',
         'Accept': '*/*',
         'Accept-Language': 'en-US,en;q=0.9',
         'Origin': 'https://www.instagram.com',
-        'Referer': `https://www.instagram.com/${username}/`
+        'Referer': `https://www.instagram.com/${username}/`,
+        'X-ASBD-ID': '129477',
+        'X-IG-WWW-Claim': '0',
+        'X-Requested-With': 'XMLHttpRequest'
       }
     });
 
-    if (!response.ok) {
-      return new Response(JSON.stringify({ error: 'User not found or Instagram API error', status: response.status }), {
+    let data;
+    // Se o Instagram retornar 401 ou 403, tentamos um fallback sem headers de Origin/Referer
+    if (response.status === 401 || response.status === 403) {
+       const fallbackResponse = await fetch(ig_url, {
+         headers: {
+           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+           'x-ig-app-id': '936619743392459'
+         }
+       });
+       if (!fallbackResponse.ok) {
+         throw new Error(`Instagram returned ${fallbackResponse.status}`);
+       }
+       data = await fallbackResponse.json();
+    } else if (!response.ok) {
+      return new Response(JSON.stringify({ error: 'Instagram API error', status: response.status }), {
         status: response.status,
-        headers: { 
-          ...corsHeaders,
-          'Content-Type': 'application/json' 
-        }
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
+    } else {
+      data = await response.json();
     }
-
-    const data = await response.json();
 
     if (!data || !data.data || !data.data.user) {
       return new Response(JSON.stringify({ error: 'User not found' }), {
         status: 404,
-        headers: { 
-          ...corsHeaders,
-          'Content-Type': 'application/json' 
-        }
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
 
@@ -91,16 +105,28 @@ export async function onRequest(context) {
     // Garantir pelo menos 14 usuários para os stories
     if (chaining.length < 14) {
       const mocks = [
-        "leomessi", "neymarjr", "kendalljenner", "arianagrande", "beyonce", 
-        "kimkardashian", "therock", "selenagomez", "kyliejenner", "taylorswift",
-        "justinbieber", "natgeo", "nike", "realmadrid"
+        { username: "leomessi", name: "Leo Messi" },
+        { username: "neymarjr", name: "Neymar Jr" },
+        { username: "kendalljenner", name: "Kendall" },
+        { username: "arianagrande", name: "Ariana Grande" },
+        { username: "beyonce", name: "Beyoncé" },
+        { username: "kimkardashian", name: "Kim Kardashian" },
+        { username: "therock", name: "The Rock" },
+        { username: "selenagomez", name: "Selena Gomez" },
+        { username: "kyliejenner", name: "Kylie Jenner" },
+        { username: "taylorswift", name: "Taylor Swift" },
+        { username: "justinbieber", name: "Justin Bieber" },
+        { username: "natgeo", name: "National Geographic" },
+        { username: "nike", name: "Nike" },
+        { username: "realmadrid", name: "Real Madrid" }
       ];
       
       for (let i = chaining.length; i < 14; i++) {
-        const mockUser = mocks[i % mocks.length];
+        const mock = mocks[i % mocks.length];
         chaining.push({
-          "username": mockUser,
-          "profile_pic_url": `https://unavatar.io/instagram/${mockUser}`
+          "username": mock.username,
+          "full_name": mock.name,
+          "profile_pic_url": `https://unavatar.io/instagram/${mock.username}`
         });
       }
     }

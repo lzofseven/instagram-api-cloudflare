@@ -2,7 +2,14 @@
 
 Este repositório contém uma solução completa para buscar dados públicos de perfis do Instagram e servir imagens de perfil contornando bloqueios de hotlinking, utilizando **Cloudflare Pages Functions**.
 
-## 🚀 Estrutura do Projeto
+## 🚀 URLs Oficiais (Live Demo)
+
+Você pode testar a API em funcionamento através das URLs abaixo:
+
+- **API de Dados:** [https://insta-api-lz.pages.dev/api?username=loohansb](https://insta-api-lz.pages.dev/api?username=loohansb)
+- **Proxy de Imagens:** [https://insta-proxy-lz.pages.dev](https://insta-proxy-lz.pages.dev)
+
+## 📂 Estrutura do Projeto
 
 - `/api-pages`: Código para deploy no Cloudflare Pages que fornece a API de dados.
 - `/proxy-pages`: Código para deploy no Cloudflare Pages que atua como proxy de imagens.

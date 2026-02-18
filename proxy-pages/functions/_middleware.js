@@ -3,8 +3,25 @@ export async function onRequest(context) {
   const url = new URL(request.url);
   const targetUrl = url.searchParams.get('url');
 
+  const corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Max-Age': '86400',
+  };
+
+  // Handle CORS preflight requests
+  if (request.method === 'OPTIONS') {
+    return new Response(null, {
+      headers: corsHeaders
+    });
+  }
+
   if (!targetUrl) {
-    return new Response('Missing url parameter', { status: 400 });
+    return new Response('Missing url parameter', { 
+      status: 400,
+      headers: corsHeaders
+    });
   }
 
   const newRequest = new Request(targetUrl, {
@@ -27,15 +44,30 @@ export async function onRequest(context) {
         },
       });
       const retryResponse = await fetch(retryRequest);
-      return new Response(retryResponse.body, retryResponse);
+      
+      const body = await retryResponse.arrayBuffer();
+      return new Response(body, {
+        status: retryResponse.status,
+        headers: {
+          ...corsHeaders,
+          'Content-Type': retryResponse.headers.get('Content-Type') || 'image/jpeg',
+        }
+      });
     }
 
-    const modifiedResponse = new Response(response.body, response);
-    modifiedResponse.headers.set('Access-Control-Allow-Origin', '*');
-    modifiedResponse.headers.set('Cache-Control', 'public, max-age=86400');
-    
-    return modifiedResponse;
+    const body = await response.arrayBuffer();
+    return new Response(body, {
+      status: response.status,
+      headers: {
+        ...corsHeaders,
+        'Content-Type': response.headers.get('Content-Type') || 'image/jpeg',
+        'Cache-Control': 'public, max-age=86400',
+      }
+    });
   } catch (e) {
-    return new Response('Error: ' + e.message, { status: 500 });
+    return new Response('Error: ' + e.message, { 
+      status: 500,
+      headers: corsHeaders
+    });
   }
 }

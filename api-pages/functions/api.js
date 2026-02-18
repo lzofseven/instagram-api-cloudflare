@@ -3,14 +3,30 @@ export async function onRequest(context) {
   const url = new URL(request.url);
   const username = url.searchParams.get('username');
 
-  if (!username) {
-    return new Response(JSON.stringify({ error: 'Username is required' }), {
-      status: 400,
-      headers: { 'Content-Type': 'application/json' }
+  const corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Max-Age': '86400',
+  };
+
+  // Handle CORS preflight requests
+  if (request.method === 'OPTIONS') {
+    return new Response(null, {
+      headers: corsHeaders
     });
   }
 
-  // URL do seu Proxy de Imagem (Pode ser alterado no deploy)
+  if (!username) {
+    return new Response(JSON.stringify({ error: 'Username is required' }), {
+      status: 400,
+      headers: { 
+        ...corsHeaders,
+        'Content-Type': 'application/json' 
+      }
+    });
+  }
+
   const worker_url = "https://insta-proxy-lz.pages.dev/?url=";
   const ig_url = `https://www.instagram.com/api/v1/users/web_profile_info/?username=${encodeURIComponent(username)}`;
 
@@ -29,7 +45,10 @@ export async function onRequest(context) {
     if (!response.ok) {
       return new Response(JSON.stringify({ error: 'User not found or Instagram API error', status: response.status }), {
         status: response.status,
-        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+        headers: { 
+          ...corsHeaders,
+          'Content-Type': 'application/json' 
+        }
       });
     }
 
@@ -38,7 +57,10 @@ export async function onRequest(context) {
     if (!data || !data.data || !data.data.user) {
       return new Response(JSON.stringify({ error: 'User not found' }), {
         status: 404,
-        headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+        headers: { 
+          ...corsHeaders,
+          'Content-Type': 'application/json' 
+        }
       });
     }
 
@@ -61,15 +83,18 @@ export async function onRequest(context) {
 
     return new Response(JSON.stringify(result, null, 4), {
       headers: { 
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*' 
+        ...corsHeaders,
+        'Content-Type': 'application/json'
       }
     });
 
   } catch (error) {
     return new Response(JSON.stringify({ error: 'Internal Server Error', message: error.message }), {
       status: 500,
-      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }
+      headers: { 
+        ...corsHeaders,
+        'Content-Type': 'application/json' 
+      }
     });
   }
 }

@@ -3,84 +3,75 @@ export async function onRequest(context) {
   const url = new URL(request.url);
   const username = url.searchParams.get('username');
 
+  // Headers CORS ultra-permissivos para evitar qualquer bloqueio no navegador
   const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': '*',
     'Access-Control-Max-Age': '86400',
   };
 
-  // Handle CORS preflight requests
+  // Resposta imediata para Preflight OPTIONS
   if (request.method === 'OPTIONS') {
     return new Response(null, {
+      status: 204,
       headers: corsHeaders
     });
   }
 
-  if (!username) {
-    return new Response(JSON.stringify({ error: 'Username is required' }), {
-      status: 400,
-      headers: { 
+  // Função auxiliar para retornar JSON com CORS garantido
+  const jsonResponse = (data, status = 200) => {
+    return new Response(JSON.stringify(data, null, 4), {
+      status: status,
+      headers: {
         ...corsHeaders,
-        'Content-Type': 'application/json' 
+        'Content-Type': 'application/json;charset=UTF-8',
       }
     });
+  };
+
+  if (!username) {
+    return jsonResponse({ error: 'Username is required' }, 400);
   }
 
   const worker_url = "https://insta-proxy-lz.pages.dev/?url=";
   const ig_url = `https://www.instagram.com/api/v1/users/web_profile_info/?username=${encodeURIComponent(username)}`;
 
   try {
-    // Quando o navegador faz a requisição, ele envia headers como 'Origin' e 'Referer'.
-    // O Instagram pode retornar 401 se detectar que a requisição está vindo de um domínio não autorizado.
-    // Usamos um User-Agent limpo e headers que simulam uma requisição interna do Instagram.
-    
-    const response = await fetch(ig_url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
-        'x-ig-app-id': '936619743392459',
-        'Accept': '*/*',
-        'Accept-Language': 'en-US,en;q=0.9',
-        'Origin': 'https://www.instagram.com',
-        'Referer': `https://www.instagram.com/${username}/`,
-        'X-ASBD-ID': '129477',
-        'X-IG-WWW-Claim': '0',
-        'X-Requested-With': 'XMLHttpRequest'
-      }
-    });
+    // Headers para simular requisição legítima e evitar 401
+    const igHeaders = {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+      'x-ig-app-id': '936619743392459',
+      'Accept': '*/*',
+      'Accept-Language': 'en-US,en;q=0.9',
+      'X-Requested-With': 'XMLHttpRequest'
+    };
 
-    let data;
-    // Se o Instagram retornar 401 ou 403, tentamos um fallback sem headers de Origin/Referer
+    let response = await fetch(ig_url, { headers: igHeaders });
+
+    // Fallback se o Instagram bloquear com 401/403
     if (response.status === 401 || response.status === 403) {
-       const fallbackResponse = await fetch(ig_url, {
-         headers: {
-           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
-           'x-ig-app-id': '936619743392459'
-         }
-       });
-       if (!fallbackResponse.ok) {
-         throw new Error(`Instagram returned ${fallbackResponse.status}`);
-       }
-       data = await fallbackResponse.json();
-    } else if (!response.ok) {
-      return new Response(JSON.stringify({ error: 'Instagram API error', status: response.status }), {
-        status: response.status,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      response = await fetch(ig_url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+          'x-ig-app-id': '936619743392459'
+        }
       });
-    } else {
-      data = await response.json();
     }
 
+    if (!response.ok) {
+      return jsonResponse({ error: 'Instagram API error', status: response.status }, response.status);
+    }
+
+    const data = await response.json();
+
     if (!data || !data.data || !data.data.user) {
-      return new Response(JSON.stringify({ error: 'User not found' }), {
-        status: 404,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+      return jsonResponse({ error: 'User not found' }, 404);
     }
 
     const user = data.data.user;
 
-    // Extrair posts reais do feed
+    // Processar Posts
     const posts = (user.edge_owner_to_timeline_media.edges || []).map(edge => {
       const node = edge.node;
       return {
@@ -95,14 +86,14 @@ export async function onRequest(context) {
       };
     });
 
-    // Gerar _chaining_results (Stories)
+    // Processar Stories (_chaining_results)
     const chaining = (user.edge_related_profiles?.edges || []).map(edge => ({
       "username": edge.node.username,
       "full_name": edge.node.full_name,
       "profile_pic_url": worker_url + encodeURIComponent(edge.node.profile_pic_url)
     }));
 
-    // Garantir pelo menos 14 usuários para os stories
+    // Garantir 14 usuários reais/conhecidos para os stories
     if (chaining.length < 14) {
       const mocks = [
         { username: "leomessi", name: "Leo Messi" },
@@ -147,20 +138,9 @@ export async function onRequest(context) {
       "_chaining_results": chaining
     };
 
-    return new Response(JSON.stringify(result, null, 4), {
-      headers: { 
-        ...corsHeaders,
-        'Content-Type': 'application/json'
-      }
-    });
+    return jsonResponse(result);
 
   } catch (error) {
-    return new Response(JSON.stringify({ error: 'Internal Server Error', message: error.message }), {
-      status: 500,
-      headers: { 
-        ...corsHeaders,
-        'Content-Type': 'application/json' 
-      }
-    });
+    return jsonResponse({ error: 'Internal Server Error', message: error.message }, 500);
   }
 }

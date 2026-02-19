@@ -5,6 +5,7 @@ export async function onRequest(context) {
   
   const filterType = url.searchParams.get('type'); 
   const filterDays = parseInt(url.searchParams.get('days')) || null;
+  const viewMode = url.searchParams.get('view'); 
 
   const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
@@ -116,6 +117,16 @@ export async function onRequest(context) {
         postsAnalyzedFiltered++;
       }
 
+      if (viewMode === 'basic') {
+        return {
+          "id": node.id,
+          "shortcode": node.shortcode,
+          "caption": node.edge_media_to_caption?.edges[0]?.node.text || "",
+          "taken_at": timestamp,
+          "pass_filter": passFilter
+        };
+      }
+
       let carousel_media = [];
       if (type === "GraphSidecar" && node.edge_sidecar_to_children) {
         carousel_media = node.edge_sidecar_to_children.edges.map(child => ({
@@ -156,22 +167,28 @@ export async function onRequest(context) {
         "username": user.username,
         "full_name": user.full_name,
         "biography": user.biography,
-        "external_url": user.external_url,
         "profile_pic_url": worker_url + encodeURIComponent(user.profile_pic_url_hd),
         "follower_count": followerCount,
         "following_count": user.edge_follow.count,
         "media_count": user.edge_owner_to_timeline_media.count,
-        "is_private": user.is_private,
         "is_verified": user.is_verified,
-        "user_id": user.id,
-        "category": user.category_name,
-        "is_business": user.is_business_account
-      },
-      "filters_applied": {
+        "user_id": user.id
+      }
+    };
+
+    if (viewMode !== 'basic') {
+      result.user_info.external_url = user.external_url;
+      result.user_info.category = user.category_name;
+      result.user_info.is_business = user.is_business_account;
+      result.user_info.is_private = user.is_private;
+      
+      result.filters_applied = {
         "type": filterType || "all",
-        "days": filterDays || "all_loaded"
-      },
-      "metrics": {
+        "days": filterDays || "all_loaded",
+        "view": viewMode || "full"
+      };
+      
+      result.metrics = {
         "total_loaded": {
           "likes": totalLikesAll,
           "views": totalViewsAll,
@@ -186,14 +203,18 @@ export async function onRequest(context) {
           "posts": postsAnalyzedFiltered,
           "engagement": calcEngagement(totalLikesFiltered, totalCommentsFiltered, postsAnalyzedFiltered, hiddenLikesFiltered, followerCount)
         }
-      },
-      "posts": processedPosts.filter(p => p.pass_filter),
-      "related_profiles": (user.edge_related_profiles?.edges || []).map(edge => ({
+      };
+      
+      result.related_profiles = (user.edge_related_profiles?.edges || []).map(edge => ({
         "username": edge.node.username,
         "full_name": edge.node.full_name,
         "profile_pic_url": worker_url + encodeURIComponent(edge.node.profile_pic_url)
-      }))
-    };
+      }));
+    } else {
+      result.view_mode = "basic";
+    }
+
+    result.posts = processedPosts.filter(p => p.pass_filter);
 
     return jsonResponse(result);
 

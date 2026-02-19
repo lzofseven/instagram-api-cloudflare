@@ -16,7 +16,7 @@ Você pode personalizar a resposta da API utilizando os seguintes parâmetros na
 ### 1. Modo de Visualização (`view`)
 Controla a quantidade de dados retornados.
 - `&view=full` (Padrão): Retorna todos os dados, métricas e mídias.
-- `&view=basic`: Retorna apenas dados essenciais do perfil e as legendas dos posts. Ideal para performance.
+- `&view=basic`: Retorna apenas dados essenciais do perfil e as legendas dos posts com contagem de comentários. Ideal para performance.
 
 **Exemplo:** `https://insta-api-lz.pages.dev/api?username=natanrabelo&view=basic`
 
@@ -42,18 +42,16 @@ Filtra os posts dos últimos X dias e mostra o desempenho nesse período.
 
 Você pode misturar os filtros para obter exatamente o que precisa:
 
-- **Apenas legendas da última semana:**
+- **Apenas legendas e comentários da última semana:**
   `?username=natanrabelo&view=basic&days=7`
 - **Vídeos (Reels) com métricas completas dos últimos 90 dias:**
   `?username=natanrabelo&type=video&days=90`
 
 ---
 
-## 📊 Estrutura do JSON (Métricas Duplas)
+## 📊 Estrutura do JSON (Métricas Completas)
 
-A API retorna dois blocos de métricas para comparação:
-- **`total_loaded`**: Estatísticas de todo o conteúdo carregado (geralmente os últimos 12-50 posts).
-- **`filtered_result`**: Estatísticas aplicando os filtros de `type` e `days` que você escolheu.
+A API retorna dois blocos de métricas para comparação, agora incluindo **contagem de comentários**:
 
 ```json
 {
@@ -67,12 +65,14 @@ A API retorna dois blocos de métricas para comparação:
         "total_loaded": {
             "likes": 11825,
             "views": 55814,
+            "comments": 329,
             "posts": 12,
             "engagement": "1.20%"
         },
         "filtered_result": {
             "likes": 5820,
             "views": 55814,
+            "comments": 167,
             "posts": 6,
             "engagement": "1.06%"
         }
@@ -84,7 +84,8 @@ A API retorna dois blocos de métricas para comparação:
             "video_url": "https://insta-proxy-lz.pages.dev/?url=...",
             "carousel_media": [],
             "like_count": "curtidas_ocultas",
-            "view_count": 1913
+            "view_count": 1913,
+            "comment_count": 11
         }
     ]
 }
@@ -93,6 +94,7 @@ A API retorna dois blocos de métricas para comparação:
 ---
 
 ## 🛠️ Funcionalidades Inclusas
+- ✅ **Contagem de Comentários:** Agora disponível em todas as métricas e no modo básico.
 - ✅ **Suporte a Carrossel:** O campo `carousel_media` traz todos os itens internos do post.
 - ✅ **CORS Liberado:** Use `fetch()` diretamente do seu site sem erros.
 - ✅ **Proxy de Imagem:** Todas as URLs de mídia já saem prontas para uso via proxy.

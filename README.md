@@ -9,48 +9,64 @@ Uma solução completa e gratuita para buscar dados públicos do Instagram, calc
 
 ---
 
-## 📊 Exemplo de Resposta JSON Completa
+## 🔍 Filtros Avançados (Query Params)
 
-A API retorna um objeto completo com dados do perfil, métricas de engajamento calculadas em tempo real, posts recentes e sugestões para stories.
+Você pode personalizar a resposta da API utilizando os seguintes parâmetros na URL:
+
+### 1. Filtrar por Tipo de Mídia (`type`)
+Filtra os posts retornados e recalcula as métricas apenas para esse tipo.
+- `&type=image`: Apenas fotos únicas.
+- `&type=video`: Apenas vídeos e Reels.
+- `&type=sidecar`: Apenas posts de carrossel (múltiplas fotos/vídeos).
+
+**Exemplo:** `https://insta-api-lz.pages.dev/api?username=natanrabelo&type=video`
+
+### 2. Filtrar por Período (`days`)
+Filtra os posts dos últimos X dias e mostra o desempenho nesse período.
+- `&days=7`: Última semana.
+- `&days=30`: Último mês.
+- `&days=90`: Último trimestre.
+
+**Exemplo:** `https://insta-api-lz.pages.dev/api?username=natanrabelo&days=30`
+
+---
+
+## 📊 Estrutura do JSON (Métricas Duplas)
+
+A API retorna dois blocos de métricas para comparação:
+- **`total_loaded`**: Estatísticas de todo o conteúdo carregado (geralmente os últimos 12-50 posts).
+- **`filtered_result`**: Estatísticas aplicando os filtros de `type` e `days` que você escolheu.
 
 ```json
 {
-    "username": "cristiano",
-    "full_name": "Cristiano Ronaldo",
-    "biography": "Página oficial do Cristiano Ronaldo",
-    "profile_pic_url": "https://insta-proxy-lz.pages.dev/?url=https%3A%2F%2Fscontent...",
-    "follower_count": 671851326,
-    "following_count": 627,
-    "media_count": 4012,
-    "is_private": false,
-    "is_verified": true,
-    "user_id": "173560420",
-    "external_url": "https://...",
+    "user_info": {
+        "username": "natanrabelo",
+        "follower_count": 112882,
+        "category": "Marketing de Influência",
+        "is_business": true
+    },
     "metrics": {
-        "total_likes_recent": 57341815,
-        "total_views_recent": 22544044,
-        "average_likes": "4778484.58",
-        "engagement_rate": "0.72%",
-        "posts_analyzed": 12
+        "total_loaded": {
+            "likes": 11825,
+            "views": 55814,
+            "posts": 12,
+            "engagement": "1.20%"
+        },
+        "filtered_result": {
+            "likes": 5820,
+            "views": 55814,
+            "posts": 6,
+            "engagement": "1.06%"
+        }
     },
     "posts": [
         {
-            "post": {
-                "image_url": "https://insta-proxy-lz.pages.dev/?url=...",
-                "video_url": "https://insta-proxy-lz.pages.dev/?url=...",
-                "like_count": 3797426,
-                "view_count": 16962755,
-                "comment_count": 35164,
-                "taken_at": 1771098506,
-                "caption": "Another step forward. Let’s keep going. 💪"
-            }
-        }
-    ],
-    "_chaining_results": [
-        {
-            "username": "leomessi",
-            "full_name": "Leo Messi",
-            "profile_pic_url": "https://insta-proxy-lz.pages.dev/?url=..."
+            "type": "GraphVideo",
+            "is_video": true,
+            "video_url": "https://insta-proxy-lz.pages.dev/?url=...",
+            "carousel_media": [],
+            "like_count": "curtidas_ocultas",
+            "view_count": 1913
         }
     ]
 }
@@ -58,26 +74,17 @@ A API retorna um objeto completo com dados do perfil, métricas de engajamento c
 
 ---
 
-## 🛠️ Estrutura do Repositório
-
-- **`/api-pages`**: Código para Cloudflare Pages Functions (API de dados + Métricas).
-- **`/proxy-pages`**: Middleware para Cloudflare Pages (Proxy de imagens/CORS).
-- **`/legacy-php`**: Versão original em PHP para servidores tradicionais.
+## 🛠️ Funcionalidades Inclusas
+- ✅ **Suporte a Carrossel:** O campo `carousel_media` traz todos os itens internos do post.
+- ✅ **CORS Liberado:** Use `fetch()` diretamente do seu site sem erros.
+- ✅ **Proxy de Imagem:** Todas as URLs de mídia já saem prontas para uso via proxy.
+- ✅ **Tratamento de Likes:** Retorna `"curtidas_ocultas"` em vez de `-1`.
 
 ## ⚙️ Como Instalar
-
-### 1. Cloudflare Pages (API)
-1. Crie um novo projeto no Cloudflare Pages.
-2. Faça o upload da pasta `api-pages`.
-3. Sua API estará disponível em `https://seu-projeto.pages.dev/api?username=NOME`.
-
-### 2. Cloudflare Pages (Proxy)
-1. Crie outro projeto no Cloudflare Pages.
-2. Faça o upload da pasta `proxy-pages`.
-3. Atualize a variável `worker_url` no arquivo `api.js` da sua API com a URL deste proxy.
-
-## 🔓 Solução de CORS
-A API já vem configurada com headers `Access-Control-Allow-Origin: *` e suporte a requisições `OPTIONS` (preflight), permitindo que você faça chamadas `fetch()` diretamente do seu front-end sem erros.
+1. Clone este repositório.
+2. Faça o deploy da pasta `/api-pages` no Cloudflare Pages.
+3. Faça o deploy da pasta `/proxy-pages` no Cloudflare Pages.
+4. Atualize a URL do proxy no arquivo `api.js`.
 
 ---
 Desenvolvido para **lzofseven**. 🚀

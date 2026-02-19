@@ -13,7 +13,14 @@ Uma solução completa e gratuita para buscar dados públicos do Instagram, calc
 
 Você pode personalizar a resposta da API utilizando os seguintes parâmetros na URL:
 
-### 1. Filtrar por Tipo de Mídia (`type`)
+### 1. Modo de Visualização (`view`)
+Controla a quantidade de dados retornados.
+- `&view=full` (Padrão): Retorna todos os dados, métricas e mídias.
+- `&view=basic`: Retorna apenas dados essenciais do perfil e as legendas dos posts. Ideal para performance.
+
+**Exemplo:** `https://insta-api-lz.pages.dev/api?username=natanrabelo&view=basic`
+
+### 2. Filtrar por Tipo de Mídia (`type`)
 Filtra os posts retornados e recalcula as métricas apenas para esse tipo.
 - `&type=image`: Apenas fotos únicas.
 - `&type=video`: Apenas vídeos e Reels.
@@ -21,13 +28,24 @@ Filtra os posts retornados e recalcula as métricas apenas para esse tipo.
 
 **Exemplo:** `https://insta-api-lz.pages.dev/api?username=natanrabelo&type=video`
 
-### 2. Filtrar por Período (`days`)
+### 3. Filtrar por Período (`days`)
 Filtra os posts dos últimos X dias e mostra o desempenho nesse período.
 - `&days=7`: Última semana.
 - `&days=30`: Último mês.
 - `&days=90`: Último trimestre.
 
 **Exemplo:** `https://insta-api-lz.pages.dev/api?username=natanrabelo&days=30`
+
+---
+
+## 💡 Exemplos Combinados
+
+Você pode misturar os filtros para obter exatamente o que precisa:
+
+- **Apenas legendas da última semana:**
+  `?username=natanrabelo&view=basic&days=7`
+- **Vídeos (Reels) com métricas completas dos últimos 90 dias:**
+  `?username=natanrabelo&type=video&days=90`
 
 ---
 

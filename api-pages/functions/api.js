@@ -122,6 +122,7 @@ export async function onRequest(context) {
           "id": node.id,
           "shortcode": node.shortcode,
           "caption": node.edge_media_to_caption?.edges[0]?.node.text || "",
+          "comment_count": comments,
           "taken_at": timestamp,
           "pass_filter": passFilter
         };

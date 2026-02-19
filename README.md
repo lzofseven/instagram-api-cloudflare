@@ -1,57 +1,83 @@
-# Instagram Profile API & Image Proxy (Cloudflare Pages)
+# 📸 Instagram API & Image Proxy (Cloudflare)
 
-Este repositório contém uma solução completa para buscar dados públicos de perfis do Instagram e servir imagens de perfil contornando bloqueios de hotlinking, utilizando **Cloudflare Pages Functions**.
+Uma solução completa e gratuita para buscar dados públicos do Instagram, calcular métricas de engajamento e exibir imagens sem bloqueios (CORS/403), tudo rodando no **Cloudflare Pages & Workers**.
 
 ## 🚀 URLs Oficiais (Live Demo)
 
-Você pode testar a API em funcionamento através das URLs abaixo:
+- **API de Dados:** `https://insta-api-lz.pages.dev/api?username=loohansb`
+- **Proxy de Imagem:** `https://insta-proxy-lz.pages.dev`
 
-- **API de Dados:** [https://insta-api-lz.pages.dev/api?username=loohansb](https://insta-api-lz.pages.dev/api?username=loohansb)
-- **Proxy de Imagens:** [https://insta-proxy-lz.pages.dev](https://insta-proxy-lz.pages.dev)
+---
 
-## 📂 Estrutura do Projeto
+## 📊 Exemplo de Resposta JSON Completa
 
-- `/api-pages`: Código para deploy no Cloudflare Pages que fornece a API de dados.
-- `/proxy-pages`: Código para deploy no Cloudflare Pages que atua como proxy de imagens.
-- `/legacy-php`: Versão original em PHP para servidores tradicionais.
+A API retorna um objeto completo com dados do perfil, métricas de engajamento calculadas em tempo real, posts recentes e sugestões para stories.
 
-## 🛠️ Como fazer o Deploy (Cloudflare Pages)
-
-### 1. Proxy de Imagens
-1. Crie um novo projeto no Cloudflare Pages.
-2. Faça o upload da pasta `/proxy-pages`.
-3. O proxy estará disponível em `https://seu-projeto-proxy.pages.dev/?url=URL_DA_IMAGEM`.
-
-### 2. API de Dados
-1. Abra o arquivo `/api-pages/functions/api.js`.
-2. Altere a variável `worker_url` para a URL do seu proxy criado no passo anterior.
-3. Crie um novo projeto no Cloudflare Pages e faça o upload da pasta `/api-pages`.
-4. A API estará disponível em `https://seu-projeto-api.pages.dev/api?username=NOME_DO_USUARIO`.
-
-## 📊 Exemplo de Uso
-
-**Chamada:**
-`GET https://insta-api-lz.pages.dev/api?username=loohansb`
-
-**Resposta JSON:**
 ```json
 {
-    "username": "loohansb",
-    "full_name": "Lohan Santos",
-    "biography": "2006 | Lz\nRun More Ads.",
-    "profile_pic_url": "https://insta-proxy-lz.pages.dev/?url=https%3A%2F%2F...",
-    "follower_count": 2520,
-    "following_count": 220,
-    "media_count": 9,
+    "username": "cristiano",
+    "full_name": "Cristiano Ronaldo",
+    "biography": "Página oficial do Cristiano Ronaldo",
+    "profile_pic_url": "https://insta-proxy-lz.pages.dev/?url=https%3A%2F%2Fscontent...",
+    "follower_count": 671851326,
+    "following_count": 627,
+    "media_count": 4012,
     "is_private": false,
-    "is_verified": false,
-    "user_id": "33484414183",
-    "external_url": "http://loohansb1.pages.dev/",
-    "_chaining_results": []
+    "is_verified": true,
+    "user_id": "173560420",
+    "external_url": "https://...",
+    "metrics": {
+        "total_likes_recent": 57341815,
+        "total_views_recent": 22544044,
+        "average_likes": "4778484.58",
+        "engagement_rate": "0.72%",
+        "posts_analyzed": 12
+    },
+    "posts": [
+        {
+            "post": {
+                "image_url": "https://insta-proxy-lz.pages.dev/?url=...",
+                "video_url": "https://insta-proxy-lz.pages.dev/?url=...",
+                "like_count": 3797426,
+                "view_count": 16962755,
+                "comment_count": 35164,
+                "taken_at": 1771098506,
+                "caption": "Another step forward. Let’s keep going. 💪"
+            }
+        }
+    ],
+    "_chaining_results": [
+        {
+            "username": "leomessi",
+            "full_name": "Leo Messi",
+            "profile_pic_url": "https://insta-proxy-lz.pages.dev/?url=..."
+        }
+    ]
 }
 ```
 
-## ⚠️ Notas
-- Esta API utiliza endpoints públicos do Instagram.
-- O Cloudflare Pages Functions é gratuito e escala automaticamente.
-- Recomenda-se o uso moderado para evitar bloqueios de IP por parte do Instagram.
+---
+
+## 🛠️ Estrutura do Repositório
+
+- **`/api-pages`**: Código para Cloudflare Pages Functions (API de dados + Métricas).
+- **`/proxy-pages`**: Middleware para Cloudflare Pages (Proxy de imagens/CORS).
+- **`/legacy-php`**: Versão original em PHP para servidores tradicionais.
+
+## ⚙️ Como Instalar
+
+### 1. Cloudflare Pages (API)
+1. Crie um novo projeto no Cloudflare Pages.
+2. Faça o upload da pasta `api-pages`.
+3. Sua API estará disponível em `https://seu-projeto.pages.dev/api?username=NOME`.
+
+### 2. Cloudflare Pages (Proxy)
+1. Crie outro projeto no Cloudflare Pages.
+2. Faça o upload da pasta `proxy-pages`.
+3. Atualize a variável `worker_url` no arquivo `api.js` da sua API com a URL deste proxy.
+
+## 🔓 Solução de CORS
+A API já vem configurada com headers `Access-Control-Allow-Origin: *` e suporte a requisições `OPTIONS` (preflight), permitindo que você faça chamadas `fetch()` diretamente do seu front-end sem erros.
+
+---
+Desenvolvido para **lzofseven**. 🚀

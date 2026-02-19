@@ -51,7 +51,7 @@ Você pode misturar os filtros para obter exatamente o que precisa:
 
 ## 📊 Estrutura do JSON (Métricas Completas)
 
-A API retorna dois blocos de métricas para comparação, agora incluindo **contagem de comentários**:
+A API retorna dois blocos de métricas para comparação, agora incluindo **contagem de comentários**. A API tenta carregar até **50 posts** (limite da carga inicial do Instagram) para análise.
 
 ```json
 {

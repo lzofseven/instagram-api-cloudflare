@@ -67,12 +67,10 @@ export async function onRequest(context) {
     const user = data.data.user;
     const followerCount = user.edge_followed_by.count;
 
-    const thirtyDaysAgo = Math.floor(Date.now() / 1000) - (30 * 24 * 60 * 60);
-
-    let totalLikes30d = 0;
-    let totalViews30d = 0;
-    let totalComments30d = 0;
-    let postsIn30d = 0;
+    let totalLikes = 0;
+    let totalViews = 0;
+    let totalComments = 0;
+    let postsAnalyzed = 0;
     let hiddenLikesCount = 0;
 
     const posts = (user.edge_owner_to_timeline_media.edges || []).map(edge => {
@@ -86,16 +84,13 @@ export async function onRequest(context) {
       if (likes === -1) {
         displayLikes = "curtidas_ocultas";
         hiddenLikesCount++;
+      } else if (typeof likes === 'number') {
+        totalLikes += likes;
       }
 
-      if (timestamp >= thirtyDaysAgo) {
-        if (typeof likes === 'number' && likes !== -1) {
-          totalLikes30d += likes;
-        }
-        totalViews30d += views;
-        totalComments30d += comments;
-        postsIn30d++;
-      }
+      totalViews += views;
+      totalComments += comments;
+      postsAnalyzed++;
 
       return {
         "id": node.id,
@@ -112,12 +107,12 @@ export async function onRequest(context) {
       };
     });
 
-    let engagementRate30d = 0;
-    if (followerCount > 0 && postsIn30d > 0) {
-      const validPostsForEngagement = postsIn30d - hiddenLikesCount;
+    let engagementRate = 0;
+    if (followerCount > 0 && postsAnalyzed > 0) {
+      const validPostsForEngagement = postsAnalyzed - hiddenLikesCount;
       if (validPostsForEngagement > 0) {
-        const avgInteractions = (totalLikes30d + totalComments30d) / validPostsForEngagement;
-        engagementRate30d = (avgInteractions / followerCount) * 100;
+        const avgInteractions = (totalLikes + totalComments) / validPostsForEngagement;
+        engagementRate = (avgInteractions / followerCount) * 100;
       }
     }
 
@@ -134,13 +129,13 @@ export async function onRequest(context) {
         "is_verified": user.is_verified,
         "user_id": user.id
       },
-      "metrics_30_days": {
-        "total_likes": totalLikes30d,
-        "total_views": totalViews30d,
-        "total_comments": totalComments30d,
-        "posts_count": postsIn30d,
+      "metrics": {
+        "total_likes": totalLikes,
+        "total_views": totalViews,
+        "total_comments": totalComments,
+        "posts_analyzed": postsAnalyzed,
         "hidden_likes_posts": hiddenLikesCount,
-        "engagement_rate": engagementRate30d > 0 ? engagementRate30d.toFixed(2) + "%" : "N/A (curtidas ocultas)"
+        "engagement_rate": engagementRate > 0 ? engagementRate.toFixed(2) + "%" : "N/A"
       },
       "posts": posts,
       "related_profiles": (user.edge_related_profiles?.edges || []).map(edge => ({

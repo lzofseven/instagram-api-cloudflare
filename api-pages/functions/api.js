@@ -73,16 +73,25 @@ export async function onRequest(context) {
     let totalViews30d = 0;
     let totalComments30d = 0;
     let postsIn30d = 0;
+    let hiddenLikesCount = 0;
 
     const posts = (user.edge_owner_to_timeline_media.edges || []).map(edge => {
       const node = edge.node;
-      const likes = node.edge_media_preview_like?.count || 0;
+      let likes = node.edge_media_preview_like?.count;
       const views = node.video_view_count || 0;
       const comments = node.edge_media_to_comment?.count || 0;
       const timestamp = node.taken_at_timestamp;
 
+      let displayLikes = likes;
+      if (likes === -1) {
+        displayLikes = "curtidas_ocultas";
+        hiddenLikesCount++;
+      }
+
       if (timestamp >= thirtyDaysAgo) {
-        totalLikes30d += likes;
+        if (typeof likes === 'number' && likes !== -1) {
+          totalLikes30d += likes;
+        }
         totalViews30d += views;
         totalComments30d += comments;
         postsIn30d++;
@@ -95,7 +104,7 @@ export async function onRequest(context) {
         "is_video": node.is_video,
         "image_url": worker_url + encodeURIComponent(node.display_url),
         "video_url": node.is_video ? worker_url + encodeURIComponent(node.video_url || "") : "",
-        "like_count": likes,
+        "like_count": displayLikes,
         "view_count": views,
         "comment_count": comments,
         "taken_at": timestamp,
@@ -105,8 +114,11 @@ export async function onRequest(context) {
 
     let engagementRate30d = 0;
     if (followerCount > 0 && postsIn30d > 0) {
-      const avgInteractions = (totalLikes30d + totalComments30d) / postsIn30d;
-      engagementRate30d = (avgInteractions / followerCount) * 100;
+      const validPostsForEngagement = postsIn30d - hiddenLikesCount;
+      if (validPostsForEngagement > 0) {
+        const avgInteractions = (totalLikes30d + totalComments30d) / validPostsForEngagement;
+        engagementRate30d = (avgInteractions / followerCount) * 100;
+      }
     }
 
     const result = {
@@ -127,7 +139,8 @@ export async function onRequest(context) {
         "total_views": totalViews30d,
         "total_comments": totalComments30d,
         "posts_count": postsIn30d,
-        "engagement_rate": engagementRate30d.toFixed(2) + "%"
+        "hidden_likes_posts": hiddenLikesCount,
+        "engagement_rate": engagementRate30d > 0 ? engagementRate30d.toFixed(2) + "%" : "N/A (curtidas ocultas)"
       },
       "posts": posts,
       "related_profiles": (user.edge_related_profiles?.edges || []).map(edge => ({

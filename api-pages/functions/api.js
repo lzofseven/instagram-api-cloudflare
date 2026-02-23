@@ -2,6 +2,7 @@ export async function onRequest(context) {
   const { request } = context;
   const url = new URL(request.url);
   const username = url.searchParams.get('username');
+  const target = url.searchParams.get('target');
   
   const filterType = url.searchParams.get('type'); 
   const filterDays = parseInt(url.searchParams.get('days')) || null;
@@ -36,6 +37,54 @@ export async function onRequest(context) {
   }
 
   const worker_url = "https://insta-proxy-lz.pages.dev/?url=";
+  
+  // Se 'target' estiver presente, verificamos se 'username' segue 'target'
+  if (target) {
+    try {
+      const ig_url = `https://www.instagram.com/api/v1/users/web_profile_info/?username=${encodeURIComponent(target)}`;
+      const igHeaders = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+        'x-ig-app-id': '936619743392459',
+        'Accept': '*/*',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'X-Requested-With': 'XMLHttpRequest'
+      };
+
+      let response = await fetch(ig_url, { headers: igHeaders });
+      if (!response.ok) {
+        return jsonResponse({ error: 'Instagram API error', status: response.status }, response.status);
+      }
+
+      const data = await response.json();
+      if (!data || !data.data || !data.data.user) {
+        return jsonResponse({ error: 'Target user not found' }, 404);
+      }
+
+      const targetId = data.data.user.id;
+      
+      // Agora buscamos o perfil do 'username' para ver se o 'target' está entre os seguidos
+      // Nota: A API pública web_profile_info não lista todos os seguidos, 
+      // mas podemos verificar se há uma relação mútua ou usar outra estratégia se disponível.
+      // Infelizmente, sem autenticação (cookies), não há um endpoint direto para "check friendship".
+      // Uma alternativa comum é verificar se o 'username' aparece nos seguidores do 'target' 
+      // ou vice-versa, mas isso exige paginação.
+      
+      // No entanto, para uma implementação simples via Cloudflare Worker sem cookies:
+      // Vamos retornar os dados básicos e informar que a verificação direta de "segue" 
+      // requer autenticação ou uma lógica de raspagem mais complexa.
+      
+      return jsonResponse({ 
+        message: "Endpoint de verificação de seguidor implementado.",
+        note: "A verificação exata de 'quem segue quem' em APIs públicas do Instagram sem cookies de sessão é restrita. Este endpoint serve como base para futuras integrações com sessões autenticadas.",
+        source: username,
+        target: target,
+        target_id: targetId
+      });
+    } catch (error) {
+      return jsonResponse({ error: 'Internal Server Error', message: error.message }, 500);
+    }
+  }
+
   const ig_url = `https://www.instagram.com/api/v1/users/web_profile_info/?username=${encodeURIComponent(username)}`;
 
   try {

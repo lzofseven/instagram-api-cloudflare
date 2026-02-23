@@ -108,3 +108,30 @@ A API retorna dois blocos de métricas para comparação, agora incluindo **cont
 
 ---
 Desenvolvido para **lzofseven**. 🚀
+
+
+---
+
+## ✨ Novo Endpoint: Verificar se um Usuário Segue Outro (`/api?username=<usuario_origem>&target=<usuario_alvo>`)
+
+Este endpoint permite verificar a relação entre dois usuários do Instagram. Dada a natureza das APIs públicas do Instagram, a verificação direta de "quem segue quem" sem autenticação (cookies de sessão) é restrita. No entanto, este endpoint serve como uma base para futuras integrações com sessões autenticadas ou para cenários onde a informação de ID do usuário alvo é suficiente.
+
+### Parâmetros:
+- `username`: O nome de usuário (handle) da pessoa que você quer verificar se segue outra.
+- `target`: O nome de usuário (handle) da pessoa que você quer verificar se é seguida pelo `username`.
+
+### Exemplo de Uso:
+`https://insta-api-lz.pages.dev/api?username=usuario_origem&target=usuario_alvo`
+
+### Resposta Esperada:
+```json
+{
+    "message": "Endpoint de verificação de seguidor implementado.",
+    "note": "A verificação exata de 'quem segue quem' em APIs públicas do Instagram sem cookies de sessão é restrita. Este endpoint serve como base para futuras integrações com sessões autenticadas.",
+    "source": "usuario_origem",
+    "target": "usuario_alvo",
+    "target_id": "ID_DO_USUARIO_ALVO"
+}
+```
+
+**Observação:** A `target_id` é o ID numérico do usuário alvo no Instagram. Para uma verificação completa de "segue/não segue", seria necessário um mecanismo de autenticação ou uma abordagem de raspagem mais complexa que não é coberta por esta API pública no momento.

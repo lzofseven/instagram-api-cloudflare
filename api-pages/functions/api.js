@@ -22,6 +22,43 @@ export async function onRequest(context) {
     });
   }
 
+  const USER_AGENTS = [
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (iPhone; CPU iPhone OS 17_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Mobile/15E148 Safari/604.1',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:122.0) Gecko/20100101 Firefox/122.0',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36 Edg/121.0.0.0'
+  ];
+
+  async function fetchWithRotation(url, options = {}) {
+    let lastError = null;
+    const shuffledAgents = [...USER_AGENTS].sort(() => Math.random() - 0.5);
+    
+    // Tenta até 3 vezes com agentes diferentes
+    for (let i = 0; i < Math.min(3, shuffledAgents.length); i++) {
+        const agent = shuffledAgents[i];
+        const headers = { 
+            ...options.headers, 
+            'User-Agent': agent 
+        };
+        
+        try {
+            const response = await fetch(url, { ...options, headers });
+            // Se der erro de rate limit ou bloqueio, tenta o próximo
+            if (response.status === 401 || response.status === 403 || response.status === 429) {
+                console.log(`Bypass: Agente bloqueado (${response.status}), trocando...`);
+                continue;
+            }
+            return response;
+        } catch (e) {
+            lastError = e;
+            continue;
+        }
+    }
+    throw lastError || new Error("Falha após rotação de agentes");
+  }
+
   const jsonResponse = (data, status = 200) => {
     return new Response(JSON.stringify(data, null, 4), {
       status: status,
@@ -43,14 +80,13 @@ export async function onRequest(context) {
     try {
       const ig_url = `https://www.instagram.com/api/v1/users/web_profile_info/?username=${encodeURIComponent(target)}`;
       const igHeaders = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
         'x-ig-app-id': '936619743392459',
         'Accept': '*/*',
         'Accept-Language': 'en-US,en;q=0.9',
         'X-Requested-With': 'XMLHttpRequest'
       };
 
-      let response = await fetch(ig_url, { headers: igHeaders });
+      let response = await fetchWithRotation(ig_url, { headers: igHeaders });
       if (!response.ok) {
         return jsonResponse({ error: 'Instagram API error', status: response.status }, response.status);
       }
@@ -89,23 +125,13 @@ export async function onRequest(context) {
 
   try {
     const igHeaders = {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
       'x-ig-app-id': '936619743392459',
       'Accept': '*/*',
       'Accept-Language': 'en-US,en;q=0.9',
       'X-Requested-With': 'XMLHttpRequest'
     };
 
-    let response = await fetch(ig_url, { headers: igHeaders });
-
-    if (response.status === 401 || response.status === 403) {
-      response = await fetch(ig_url, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
-          'x-ig-app-id': '936619743392459'
-        }
-      });
-    }
+    let response = await fetchWithRotation(ig_url, { headers: igHeaders });
 
     if (!response.ok) {
       return jsonResponse({ error: 'Instagram API error', status: response.status }, response.status);

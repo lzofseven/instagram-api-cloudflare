@@ -3,6 +3,7 @@ export async function onRequest(context) {
   const url = new URL(request.url);
   const username = url.searchParams.get('username');
   const target = url.searchParams.get('target');
+  const shortcode = url.searchParams.get('shortcode');
   
   const filterType = url.searchParams.get('type'); 
   const filterDays = parseInt(url.searchParams.get('days')) || null;
@@ -69,8 +70,8 @@ export async function onRequest(context) {
     });
   };
 
-  if (!username) {
-    return jsonResponse({ error: 'Username is required' }, 400);
+  if (!username && !shortcode) {
+    return jsonResponse({ error: 'Username or shortcode is required' }, 400);
   }
 
   const worker_url = "https://insta-proxy-lz.pages.dev/?url=";
@@ -98,26 +99,65 @@ export async function onRequest(context) {
 
       const targetId = data.data.user.id;
       
-      // Agora buscamos o perfil do 'username' para ver se o 'target' está entre os seguidos
-      // Nota: A API pública web_profile_info não lista todos os seguidos, 
-      // mas podemos verificar se há uma relação mútua ou usar outra estratégia se disponível.
-      // Infelizmente, sem autenticação (cookies), não há um endpoint direto para "check friendship".
-      // Uma alternativa comum é verificar se o 'username' aparece nos seguidores do 'target' 
-      // ou vice-versa, mas isso exige paginação.
-      
-      // No entanto, para uma implementação simples via Cloudflare Worker sem cookies:
-      // Vamos retornar os dados básicos e informar que a verificação direta de "segue" 
-      // requer autenticação ou uma lógica de raspagem mais complexa.
-      
       return jsonResponse({ 
         message: "Endpoint de verificação de seguidor implementado.",
-        note: "A verificação exata de 'quem segue quem' em APIs públicas do Instagram sem cookies de sessão é restrita. Este endpoint serve como base para futuras integrações com sessões autenticadas.",
+        note: "A verificação exata de 'quem segue quem' em APIs públicas do Instagram sem cookies de sessão é restrita.",
         source: username,
         target: target,
         target_id: targetId
       });
     } catch (error) {
       return jsonResponse({ error: 'Internal Server Error', message: error.message }, 500);
+    }
+  }
+
+  // Novo: Buscar comentários de um post específico
+  if (shortcode) {
+    try {
+        const post_url = `https://www.instagram.com/p/${shortcode}/?__a=1&__d=dis`;
+        const igHeaders = {
+            'x-ig-app-id': '936619743392459',
+            'Accept': '*/*',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'X-Requested-With': 'XMLHttpRequest'
+        };
+
+        let response = await fetchWithRotation(post_url, { headers: igHeaders });
+        if (!response.ok) {
+            return jsonResponse({ error: 'Instagram Post API error', status: response.status }, response.status);
+        }
+
+        const data = await response.json();
+        const media = data.items ? data.items[0] : (data.graphql ? data.graphql.shortcode_media : null);
+        
+        if (!media) {
+            return jsonResponse({ error: 'Post not found or private' }, 404);
+        }
+
+        const comments = (media.edge_media_to_parent_comment?.edges || []).map(edge => ({
+            id: edge.node.id,
+            text: edge.node.text,
+            created_at: edge.node.created_at,
+            owner: {
+                id: edge.node.owner.id,
+                username: edge.node.owner.username,
+                profile_pic_url: edge.node.owner.profile_pic_url
+            },
+            like_count: edge.node.edge_liked_by?.count || 0
+        }));
+
+        return jsonResponse({
+            id: media.id,
+            shortcode: media.shortcode,
+            caption: media.edge_media_to_caption?.edges[0]?.node.text || "",
+            like_count: media.edge_media_preview_like?.count || media.like_count,
+            comment_count: media.edge_media_to_parent_comment?.count || media.comment_count,
+            display_url: media.display_url,
+            owner: media.owner,
+            comments: comments
+        });
+    } catch (error) {
+        return jsonResponse({ error: 'Internal Server Error', message: error.message }, 500);
     }
   }
 

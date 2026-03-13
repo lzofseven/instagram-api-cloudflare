@@ -24,12 +24,11 @@ export async function onRequest(context) {
   }
 
   const USER_AGENTS = [
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
-    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
-    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
-    'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1',
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:124.0) Gecko/20100101 Firefox/124.0',
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36 Edg/123.0.0.0'
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.3.1 Safari/605.1.15'
   ];
 
   async function fetchWithRotation(url, options = {}) {
@@ -39,32 +38,56 @@ export async function onRequest(context) {
     const tryFetch = async (targetUrl, agent) => {
         const headers = { 
             ...options.headers, 
-            'User-Agent': agent 
+            'User-Agent': agent,
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+            'Accept-Language': 'en-US,en;q=0.9,pt-BR;q=0.8,pt;q=0.7',
+            'Sec-Ch-Ua': '"Chromium";v="122", "Not(A:Brand";v="24", "Google Chrome";v="122"',
+            'Sec-Ch-Ua-Mobile': '?0',
+            'Sec-Ch-Ua-Platform': '"Windows"',
+            'Sec-Fetch-Dest': 'document',
+            'Sec-Fetch-Mode': 'navigate',
+            'Sec-Fetch-Site': 'none',
+            'Sec-Fetch-User': '?1',
+            'Upgrade-Insecure-Requests': '1',
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'
         };
         const sessionCookie = context.env ? context.env.SESSION_COOKIE : null;
         if (sessionCookie) {
             headers['Cookie'] = headers['Cookie'] ? `${headers['Cookie']}; sessionid=${sessionCookie}` : `sessionid=${sessionCookie}`;
         }
-        const response = await fetch(targetUrl, { ...options, headers });
-        if (response.status === 401 || response.status === 403 || response.status === 429) {
+        const fetchOptions = {
+            ...options,
+            headers,
+            cf: {
+                cacheEverything: false,
+                cacheTtl: 0
+            }
+        };
+        const response = await fetch(targetUrl, fetchOptions);
+        if (response.status === 401 || response.status === 403 || response.status === 429 || response.status === 302) {
             throw new Error(`Blocked (${response.status})`);
         }
         return response;
     };
 
-    // Tenta até 3 vezes com agentes diferentes diretamente
-    for (let i = 0; i < Math.min(3, shuffledAgents.length); i++) {
+    // Tenta até 5 vezes com agentes diferentes diretamente
+    for (let i = 0; i < Math.min(5, shuffledAgents.length); i++) {
         try {
+            // Pequeno delay aleatório entre tentativas para evitar detecção de rajada
+            if (i > 0) await new Promise(r => setTimeout(r, 500 + Math.random() * 1000));
             return await tryFetch(url, shuffledAgents[i]);
         } catch (e) {
             lastError = e;
-            console.log(`Direct fetch failed: ${e.message}. Trying next agent...`);
+            console.log(`Attempt ${i + 1} failed: ${e.message}. Trying next agent...`);
         }
     }
 
     // Se falhou direto, tenta 1 vez via proxy
     try {
         console.log("Attempting via proxy fallback...");
+        await new Promise(r => setTimeout(r, 1000));
         const proxyUrl = `https://insta-proxy-lz.pages.dev/?url=${encodeURIComponent(url)}`;
         return await tryFetch(proxyUrl, USER_AGENTS[0]);
     } catch (e) {
@@ -182,11 +205,7 @@ export async function onRequest(context) {
       'x-ig-app-id': '936619743392459',
       'Accept': '*/*',
       'Accept-Language': 'en-US,en;q=0.9',
-      'X-Requested-With': 'XMLHttpRequest',
-      'Sec-Fetch-Dest': 'empty',
-      'Sec-Fetch-Mode': 'cors',
-      'Sec-Fetch-Site': 'same-origin',
-      'Referer': 'https://www.instagram.com/'
+      'X-Requested-With': 'XMLHttpRequest'
     };
 
     let response = await fetchWithRotation(ig_url, { headers: igHeaders });

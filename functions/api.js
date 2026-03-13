@@ -122,51 +122,67 @@ export async function onRequest(context) {
   // Novo: Buscar comentários de um post específico
   if (shortcode) {
     try {
-        const query_hash = 'b563051c548c75e96832dbd1c01e5b30'; // Hash padrão para comentários
-        const variables = JSON.stringify({ shortcode, first: 50 });
-        const post_url = `https://www.instagram.com/graphql/query/?query_hash=${query_hash}&variables=${encodeURIComponent(variables)}`;
-        
-        const igHeaders = {
+        // Passo 1: Obter Media ID do shortcode (necessário para v1)
+        // O Media ID é derivado do shortcode, mas é mais simples tentar o info v1 primeiro
+        const info_url = `https://www.instagram.com/api/v1/media/shortcode_to_media_id/${shortcode}/`;
+        const initialHeaders = {
             'x-ig-app-id': '936619743392459',
-            'Accept': '*/*',
-            'Accept-Language': 'en-US,en;q=0.9',
             'X-Requested-With': 'XMLHttpRequest',
             'Referer': `https://www.instagram.com/p/${shortcode}/`
         };
 
-        let response = await fetchWithRotation(post_url, { headers: igHeaders });
-        if (!response.ok) {
-            return jsonResponse({ error: 'Instagram GraphQL error', status: response.status }, response.status);
+        const idResponse = await fetchWithRotation(info_url, { headers: initialHeaders });
+        if (!idResponse.ok) {
+            // Fallback para GraphQL se o v1 falhar na conversão
+            const query_hash = 'b563051c548c75e96832dbd1c01e5b30';
+            const variables = JSON.stringify({ shortcode, first: 50 });
+            const graphql_url = `https://www.instagram.com/graphql/query/?query_hash=${query_hash}&variables=${encodeURIComponent(variables)}`;
+            const response = await fetchWithRotation(graphql_url, { headers: initialHeaders });
+            if (!response.ok) return jsonResponse({ error: 'Instagram API error (v1+GraphQL)', status: response.status }, response.status);
+            
+            const data = await response.json();
+            const media = data.data?.shortcode_media;
+            if (!media) return jsonResponse({ error: 'Post not found' }, 404);
+
+            return jsonResponse({
+                id: media.id,
+                shortcode: media.shortcode,
+                caption: media.edge_media_to_caption?.edges[0]?.node.text || "",
+                comments: (media.edge_media_to_parent_comment?.edges || []).map(e => ({
+                    text: e.node.text,
+                    owner: e.node.owner.username
+                }))
+            });
         }
 
-        const data = await response.json();
-        const media = data.data?.shortcode_media;
-        
-        if (!media) {
-            return jsonResponse({ error: 'Post not found or private (GraphQL)' }, 404);
-        }
+        const idData = await idResponse.json();
+        const mediaId = idData.media_id || idData.id;
 
-        const comments = (media.edge_media_to_parent_comment?.edges || []).map(edge => ({
-            id: edge.node.id,
-            text: edge.node.text,
-            created_at: edge.node.created_at,
-            owner: {
-                id: edge.node.owner.id,
-                username: edge.node.owner.username,
-                profile_pic_url: edge.node.owner.profile_pic_url
-            },
-            like_count: edge.node.edge_liked_by?.count || 0
-        }));
+        // Passo 2: Buscar comentários via v1 media ID
+        const comments_url = `https://www.instagram.com/api/v1/media/${mediaId}/comments/`;
+        const v1Headers = {
+            ...initialHeaders,
+            'x-asbd-id': '197023',
+            'x-ig-www-claim': '0'
+        };
 
+        const finalResponse = await fetchWithRotation(comments_url, { headers: v1Headers });
+        if (!finalResponse.ok) return jsonResponse({ error: 'Comment API error', status: finalResponse.status }, finalResponse.status);
+
+        const data = await finalResponse.json();
         return jsonResponse({
-            id: media.id,
-            shortcode: media.shortcode,
-            caption: media.edge_media_to_caption?.edges[0]?.node.text || "",
-            like_count: media.edge_media_preview_like?.count,
-            comment_count: media.edge_media_to_parent_comment?.count,
-            display_url: media.display_url,
-            owner: media.owner,
-            comments: comments
+            id: mediaId,
+            shortcode: shortcode,
+            comment_count: data.comment_count,
+            comments: (data.comments || []).map(c => ({
+                id: c.pk,
+                text: c.text,
+                created_at: c.created_at,
+                owner: {
+                    username: c.user.username,
+                    profile_pic_url: c.user.profile_pic_url
+                }
+            }))
         });
     } catch (error) {
         return jsonResponse({ error: 'Internal Server Error', message: error.message }, 500);
